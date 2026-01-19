@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phoenix Air - 登機證確認系統</title>
+    <style>
+        :root {
+            --ana-blue: #002D72; /* ANA 經典深藍 */
+            --ana-accent: #00A1E4; /* ANA 亮藍 */
+            --bg-gray: #F2F5F8;
+            --text-main: #1A1A1A;
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            width: 100vw; height: 100vh;
+            background-color: var(--bg-gray);
+            font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
+            overflow: hidden;
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        #viewport {
+            position: relative;
+            width: 1920px; height: 1080px;
+            background: white;
+            box-shadow: 0 40px 100px rgba(0,0,0,0.1);
+            display: flex; flex-direction: column;
+            transform: scale(0.5);
+            transform-origin: center;
+        }
+
+        .header-bar {
+            width: 100%; height: 120px;
+            background: var(--ana-blue);
+            display: flex; align-items: center; padding: 0 60px;
+            color: white; font-size: 32px; font-weight: bold;
+            letter-spacing: 4px; border-bottom: 8px solid var(--ana-accent);
+            box-sizing: border-box;
+        }
+
+        .main-stage {
+            flex: 1; position: relative;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            padding: 40px;
+        }
+
+        .card {
+            width: 1300px; padding: 80px;
+            background: white; border-radius: 4px;
+            box-shadow: 0 20px 60px rgba(0,45,114,0.05);
+            text-align: center; border: 1px solid #E0E0E0;
+        }
+
+        .option-group {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 30px;
+            margin-top: 60px; width: 100%;
+        }
+
+        /* 修改：帶有方框的按鈕樣式 */
+        .btn-action {
+            display: flex; align-items: center;
+            padding: 30px 40px; font-size: 26px;
+            background: white; border: 2px solid #DDE3ED;
+            color: var(--ana-blue); cursor: pointer;
+            text-align: left; transition: all 0.2s;
+            border-radius: 2px; line-height: 1.5;
+        }
+
+        /* 方框樣式 */
+        .checkbox-box {
+            width: 32px; height: 32px;
+            border: 2px solid var(--ana-blue);
+            margin-right: 20px;
+            display: flex; align-items: center; justify-content: center;
+            background: white; flex-shrink: 0;
+            position: relative;
+        }
+
+        /* 打勾符號 (預設隱藏) */
+        .checkbox-box::after {
+            content: '✔';
+            color: white; font-size: 24px; display: none;
+        }
+
+        /* 選中狀態 */
+        .btn-action.selected {
+            background: var(--ana-blue) !important;
+            color: white !important;
+            border-color: var(--ana-blue);
+        }
+        .btn-action.selected .checkbox-box {
+            background: var(--ana-accent);
+            border-color: white;
+        }
+        .btn-action.selected .checkbox-box::after {
+            display: block;
+        }
+
+        .btn-action:hover {
+            background: var(--bg-gray);
+            border-color: var(--ana-accent);
+            transform: translateY(-5px);
+        }
+
+        .footer-nav {
+            height: 120px; width: 100%;
+            background: #EBF0F6; display: flex;
+            justify-content: center; align-items: center; gap: 30px;
+        }
+
+        .nav-item {
+            width: 120px; height: 50px;
+            background: white; border: 1px solid #BDC7D3;
+            color: var(--ana-blue); font-weight: bold;
+            cursor: pointer; font-size: 18px;
+        }
+
+        .nav-item.active {
+            background: var(--ana-blue); color: white; border: none;
+        }
+
+        /* 修改：飛機 Icon 使用 SVG */
+        #plane-icon {
+            position: absolute; top: 45%; left: -300px;
+            width: 200px; height: auto; z-index: 1000;
+            pointer-events: none; opacity: 0;
+        }
+
+        .fly {
+            animation: planeFly 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        @keyframes planeFly {
+            0% { left: -300px; opacity: 1; transform: scale(1); }
+            50% { opacity: 1; }
+            100% { left: 2200px; opacity: 0; transform: scale(1.2); }
+        }
+
+        #transition-curtain {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: var(--ana-blue); z-index: 999;
+            transform: translateX(-100%);
+        }
+
+        .curtain-move {
+            animation: curtainAction 1s forwards;
+        }
+
+        @keyframes curtainAction {
+            0% { transform: translateX(-100%); }
+            50% { transform: translateX(0); }
+            100% { transform: translateX(100%); }
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div id="viewport">
+    <img id="plane-icon" src="airplane icon.svg" alt="plane">
+    <div id="transition-curtain"></div>
+
+    <div class="header-bar">
+    <img src="logo.svg" alt="Phoenix Air Logo" style="height: 80px; width: auto; display: block;">
+    
+    <span style="margin-left: auto; font-size: 20px; font-weight: normal;">INTERNATIONAL PASSENGER SERVICE</span>
+</div>
+
+    <div class="main-stage">
+        <div id="page-start" class="card">
+            <h1 style="color: var(--ana-blue); font-size: 56px; margin-bottom: 20px;">歡迎搭乘鳳凰航空</h1>
+            <p style="font-size: 32px; color: #666; line-height: 1.8;">
+                親愛的乘客您好，歡迎搭乘鳳凰航空。登機前，請先填寫入境表格，選定您所屬的票種。<br>
+                <span style="font-size: 24px;">Please complete the entry form to confirm your ticket type.</span>
+            </p>
+            <div style="display: flex; justify-content: center; width: 100%;">
+                <button class="btn-action" style="margin-top: 60px; justify-content:center; background:var(--ana-accent); color:white; border:none; width: 400px;" onclick="nextStep('quiz')">開始辦理登機</button>
+            </div>
+        </div>
+
+        <div id="page-quiz" class="card hidden">
+            <h2 id="question-text" style="font-size: 42px; color: var(--ana-blue); text-align: left; margin-bottom: 50px;"></h2>
+            <div id="option-list" class="option-group"></div>
+        </div>
+
+        <div id="page-result" class="card hidden">
+            <div style="font-size: 28px; color: var(--ana-accent); font-weight: bold; margin-bottom: 10px;">核定票種：Confirmed Ticket Type</div>
+            <h1 id="res-type" style="font-size: 80px; color: var(--ana-blue); margin: 10px 0;"></h1>
+            <h2 id="res-role" style="font-size: 40px; background: var(--bg-gray); display: inline-block; padding: 10px 40px; margin-bottom: 40px;"></h2>
+            <p id="res-desc" style="font-size: 28px; line-height: 1.8; text-align: left; color: #444; border-left: 10px solid var(--ana-accent); padding-left: 30px;"></p>
+            <div style="display: flex; justify-content: center; width: 100%;">
+                <button class="btn-action" style="width: 300px; margin-top: 50px; justify-content: center;" onclick="resetQuiz()">重新測試</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer-nav">
+        <button class="nav-item" onclick="jumpTo(0)">STEP 01</button>
+        <button class="nav-item" onclick="jumpTo(1)">STEP 02</button>
+        <button class="nav-item" onclick="jumpTo(2)">STEP 03</button>
+        <button class="nav-item" onclick="jumpTo(3)">STEP 04</button>
+        <button class="nav-item" onclick="jumpTo(4)">STEP 05</button>
+    </div>
+</div>
+
+<script>
+    const quizData = [
+        {
+            q: "捷運上有醉漢在找國中生麻煩，大家都在躲，你會？",
+            options: [
+                { t: "直接擋在醉漢前面，死不讓開。", role: "驖驪", score: 5 },
+                { t: "走過去跟醉漢瞎扯，笑嘻嘻把這傢伙帶開。", role: "鸞華", score: 4 },
+                { t: "縮在旁邊手超抖，但默默錄影存證。", role: "阿芒", score: 3 },
+                { t: "保持鎮定，立刻按通話鈴通知站務員處理。", role: "念恙", score: 5 }
+            ]
+        },
+        {
+            q: "分組報告遇到豬隊友，人間蒸發還留下爛攤子，這時你會？",
+            options: [
+                { t: "面無表情接手，狂call並告訴他：「你很扯。」", role: "驖驪", score: 2 },
+                { t: "先請組員喝飲料，再傳訊問當事人：「哥你還活著嗎？」", role: "鸞華", score: 2 },
+                { t: "感覺到現場氣氛凝固，焦慮到好想直接逃走。", role: "阿芒", score: 2 },
+                { t: "翻白眼的同時，還是默默把爛攤子收乾淨。", role: "念恙", score: 4 }
+            ]
+        },
+        {
+            q: "路邊看到受虐的小動物，看起來快不行了⋯⋯",
+            options: [
+                { t: "覺得這是自己的責任，直接送醫負責到底。", role: "驖驪", score: 3 },
+                { t: "哎呀太慘了吧！外套包著就衝回家照顧。", role: "鸞華", score: 1 },
+                { t: "心疼到心臟裂開，發著抖找獸醫院。", role: "阿芒", score: 1 },
+                { t: "立刻聯絡動保處，按規定處理。", role: "念恙", score: 1 }
+            ]
+        },
+        {
+            q: "老闆要求做一件違背良心、但能讓公司賺錢的鳥事，你會？",
+            options: [
+                { t: "沒辦法，我真的做不到。即便被開除也要拒絕。", role: "驖驪", score: 4 },
+                { t: "繞圈子說漂亮話，陽奉陰違，轉移老闆注意力。", role: "鸞華", score: 5 },
+                { t: "壓力大到爆，覺得世界很噁心，開始考慮辭職。", role: "阿芒", score: 4 },
+                { t: "做一份報表說明風險，用邏輯與專業勸退老闆。", role: "念恙", score: 3 }
+            ]
+        },
+        {
+            q: "終於放長假了！你夢想中的行程是？",
+            options: [
+                { t: "規劃有意義的行程，登山或學習，不想虛度。", role: "驖驪", score: 1 },
+                { t: "機票買了就飛，最想在當地小酒館亂交朋友。", role: "鸞華", score: 3 },
+                { t: "躲到一個沒人的海邊，只要不用說話都好。", role: "阿芒", score: 5 },
+                { t: "做出超精準表格，包含餐點與車次，都要在掌控中。", role: "念恙", score: 2 }
+            ]
+        }
+    ];
+
+    const roleDetails = {
+        '阿芒': { ticket: '早場票', desc: '極度敏感的高敏者，雖然害怕社交惡意，卻擁有看清人性的犀利視角。' },
+        '驖驪': { ticket: '軍警優待票', desc: '說一是一的原則守護者，即便手握權力也絕不濫用，是令工作夥伴安心的支柱。' },
+        '念恙': { ticket: '指定頭等席', desc: '追求完美的邏輯天才，習慣用自我要求與精確規劃來對抗未知的不安。' },
+        '鸞華': { ticket: '逃票', desc: '外表灑脫的社交能手，看似放蕩不羈，實則擁有一顆最容易同理他人的心腸。' }
+    };
+
+    let currentStep = 0;
+    let userSelections = [];
+
+    function nextStep(pageId) {
+        runTransition(() => {
+            document.querySelectorAll('.card').forEach(c => c.classList.add('hidden'));
+            if(pageId === 'quiz') renderQuiz(currentStep);
+            document.getElementById('page-' + pageId).classList.remove('hidden');
+        });
+    }
+
+    function renderQuiz(idx) {
+        currentStep = idx;
+        const data = quizData[idx];
+        document.getElementById('question-text').innerText = `STEP 0${idx+1}: ${data.q}`;
+        
+        const list = document.getElementById('option-list');
+        list.innerHTML = '';
+
+        const shuffled = [...data.options].sort(() => Math.random() - 0.5);
+
+        shuffled.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = 'btn-action';
+            btn.innerHTML = `<div class="checkbox-box"></div><span>${opt.t}</span>`;
+            
+            btn.onclick = function() {
+                this.classList.add('selected');
+                userSelections[currentStep] = opt;
+
+                setTimeout(() => {
+                    if (currentStep < 4) {
+                        currentStep++;
+                        nextStep('quiz');
+                    } else {
+                        calculateFinalResult();
+                    }
+                }, 400);
+            };
+            list.appendChild(btn);
+        });
+
+        document.querySelectorAll('.nav-item').forEach((btn, i) => {
+            btn.classList.toggle('active', i === idx);
+        });
+    }
+
+    function calculateFinalResult() {
+        const counts = { '驖驪': 0, '鸞華': 0, '阿芒': 0, '念恙': 0 };
+        const totalScores = { '驖驪': 0, '鸞華': 0, '阿芒': 0, '念恙': 0 };
+        const maxSingleScore = { '驖驪': 0, '鸞華': 0, '阿芒': 0, '念恙': 0 };
+
+        userSelections.forEach(sel => {
+            counts[sel.role]++;
+            totalScores[sel.role] += sel.score;
+            if (sel.score > maxSingleScore[sel.role]) {
+                maxSingleScore[sel.role] = sel.score;
+            }
+        });
+
+        let maxCount = 0;
+        let winnersByCount = [];
+        for (let role in counts) {
+            if (counts[role] > maxCount) {
+                maxCount = counts[role];
+                winnersByCount = [role];
+            } else if (counts[role] === maxCount) {
+                winnersByCount.push(role);
+            }
+        }
+
+        let finalRole = "";
+
+        if (maxCount >= 3) {
+            finalRole = winnersByCount[0];
+        } else {
+            let maxTotal = -1;
+            let winnersByTotal = [];
+            winnersByCount.forEach(role => {
+                if (totalScores[role] > maxTotal) {
+                    maxTotal = totalScores[role];
+                    winnersByTotal = [role];
+                } else if (totalScores[role] === maxTotal) {
+                    winnersByTotal.push(role);
+                }
+            });
+
+            if (winnersByTotal.length === 1) {
+                finalRole = winnersByTotal[0];
+            } else {
+                let maxSingle = -1;
+                winnersByTotal.forEach(role => {
+                    if (maxSingleScore[role] > maxSingle) {
+                        maxSingle = maxSingleScore[role];
+                        finalRole = role;
+                    }
+                });
+            }
+        }
+        showFinalPage(finalRole);
+    }
+
+    function showFinalPage(role) {
+        runTransition(() => {
+            document.getElementById('page-quiz').classList.add('hidden');
+            document.getElementById('page-result').classList.remove('hidden');
+            
+            const info = roleDetails[role];
+            document.getElementById('res-type').innerText = info.ticket;
+            document.getElementById('res-role').innerText = `乘客：${role}`;
+            document.getElementById('res-desc').innerText = info.desc;
+        });
+    }
+
+    function jumpTo(idx) {
+        currentStep = idx;
+        nextStep('quiz');
+    }
+
+    function resetQuiz() {
+        currentStep = 0;
+        userSelections = [];
+        nextStep('start');
+    }
+
+    function runTransition(callback) {
+        const plane = document.getElementById('plane-icon');
+        const curtain = document.getElementById('transition-curtain');
+        plane.classList.add('fly');
+        curtain.classList.add('curtain-move');
+        
+        setTimeout(() => callback(), 500);
+        setTimeout(() => {
+            plane.classList.remove('fly');
+            curtain.classList.remove('curtain-move');
+        }, 1000);
+    }
+
+    window.onload = () => {
+        const scale = window.innerWidth / 1920;
+        document.getElementById('viewport').style.transform = `scale(${scale})`;
+    };
+</script>
+</body>
+</html>
